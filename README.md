@@ -3,6 +3,7 @@ An application that can configure the hostname of a Meraki device by obtaining n
 
 ## Contacts
 * Simon Fang (sifang@cisco.com)
+* Jason Mah (jamah@cisco.com)
 
 ## Solution Components
 * PyATS
