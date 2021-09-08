@@ -56,6 +56,26 @@ An application that can configure the hostname of a Meraki device by obtaining n
 
 4. In a terminal, install the requirements with `pip install -r requirements.txt`. 
 
+## Usage
+1. Run the flask application:
+
+        $ python app.py
+
+2. Go to the following url:
+
+        https://localhost:5000/
+        
+### Docker
+Replace <b><image-name></b> with appropriate name for below
+> Note: it is important that you have updated the `env_var.py` file with the right values before building the dockter container. Otherwise, you might encounter an error. 
+```shell script
+# To build image using docker
+docker build . -t <image-name>
+
+# To run dockerized application locally
+docker run --rm --name gve-devnet-pyats-hostanme-app -p 5000:5000 <image-name> 
+```
+
 ## Meraki API Key
 
 In order to use the Cisco Meraki API, you have to enable the API for your organization first. After having enabled API access, you can generate an API key. You can follow the following instructions on how to enable API access and how to generate an API key:
@@ -126,15 +146,6 @@ In order to parse CLI output, we use a parser called Genie. Genie integrates wel
 
 > https://developer.cisco.com/docs/genie-docs/
 
-
-## Usage
-1. Run the flask application:
-
-        $ python app.py
-
-2. Go to the following url:
-
-        https://localhost:5000/
 
 
 ![/IMAGES/0image.png](IMAGES/0image.png)
