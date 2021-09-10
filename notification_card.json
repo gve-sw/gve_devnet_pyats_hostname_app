@@ -39,11 +39,6 @@
                     "width": "stretch"
                 }
             ]
-        },
-        {
-            "type": "TextBlock",
-            "text": "We have succesfully configured the following hostnames:",
-            "wrap": true
         }
     ],
     "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",

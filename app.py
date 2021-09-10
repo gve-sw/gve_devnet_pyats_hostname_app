@@ -34,7 +34,11 @@ port_number_to_uplink_switch = config['port_number_to_uplink_switch']
 
 # Initalize SDK
 dashboard = meraki.DashboardAPI(api_key = meraki_api_key)
-webex_api = WebexTeamsAPI(access_token=webex_teams_token)
+try:
+    webex_api = WebexTeamsAPI(access_token=webex_teams_token)
+except:
+    app.logger.info("Please note that we could not connect to the Webex Teams API")
+    webex_api = []
 
 # Template variables
 organizations = []
@@ -43,6 +47,7 @@ devices = []
 selected_organization = []
 selected_network = []
 configured_hostnames = []
+failed_hostnames = []
 
 # Methods
 
@@ -90,6 +95,7 @@ def configure_device(serial_numbers):
     global port_number
 
     conf_hostnames = []
+    failed_hostnames = []
     for serial_number in serial_numbers:
         try:
             lldp_cdp = dashboard.devices.getDeviceLldpCdp(serial_number)
@@ -124,7 +130,7 @@ def configure_device(serial_numbers):
 
             conf_hostnames.append(device_info)
         except:
-            app.log_exception(f"Note: we could not configure the device with serial number {serial_number}")
+            app.logger.info(f"Note: we could not configure the device with serial number {serial_number}")
             # Note: we could not update the name
             get_device_info = dashboard.devices.getDevice(serial=serial_number)
             device_info = {}
@@ -132,12 +138,23 @@ def configure_device(serial_numbers):
             device_info['serial'] = get_device_info['serial']
             device_info['updated_name'] = get_device_info['name']
 
-    return conf_hostnames
+            failed_hostnames.append(device_info)
 
-def send_webex_notification(conf_hostnames):
+    return conf_hostnames, failed_hostnames
+
+def send_webex_notification(conf_hostnames, fail_hostnames):
     with open('notification_card.json', 'r') as f:
         adaptive_card = json.loads(f.read())
         f.close()
+    
+    # If list is non-empty, then add the successfully configured hostnames
+    if conf_hostnames:
+        textblock_to_add = {
+            "type": "TextBlock",
+            "text": "We have succesfully configured the following hostnames:",
+            "wrap": True
+            }
+        adaptive_card['body'].append(textblock_to_add)
 
     for configured_hostname in conf_hostnames:
         textblock_to_add = {
@@ -148,11 +165,33 @@ def send_webex_notification(conf_hostnames):
 
         adaptive_card['body'].append(textblock_to_add)
 
+    # If list is non-empty, then add the successfully configured hostnames
+    if fail_hostnames:
+        textblock_to_add = {
+            "type": "TextBlock",
+            "text": "The following hostnames were unsuccessful:",
+            "wrap": True
+            }
+        adaptive_card['body'].append(textblock_to_add)
+
+    for failed_hostname in fail_hostnames:
+        textblock_to_add = {
+            "type": "TextBlock",
+            "text": f"* {failed_hostname['old_name']} with serial: {failed_hostname['serial']}",
+            "wrap": True
+            }
+
+        adaptive_card['body'].append(textblock_to_add)
+
     # Send card on webex
-    webex_api.messages.create(webex_room_id, text="If you see this your client cannot render cards.", attachments=[{
-        "contentType": "application/vnd.microsoft.card.adaptive",
-        "content": adaptive_card
-        }])
+    if webex_api:
+        try:
+            webex_api.messages.create(webex_room_id, text="If you see this your client cannot render cards.", attachments=[{
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": adaptive_card
+                }])
+        except:
+            app.logger.info("Exception: could not send the summary over Webex")
 
 def get_devices(network_id):
     global device_name_filter
@@ -170,7 +209,8 @@ def get_devices(network_id):
 def main():
     global organizations
     organizations = dashboard.organizations.getOrganizations()
-    return render_template('columnpage.html', organizations = organizations, networks = [], devices = [], selected_organization = [], selected_network = [], configured_hostnames = [])
+    return render_template('columnpage.html', organizations = organizations, networks = [], devices = [], selected_organization = [], 
+    selected_network = [], configured_hostnames = [], failed_hostnames = [])
 
 # User submits their organization and/or network selection in first rail
 @app.route('/select_organization_network', methods=['POST', 'GET'])
@@ -203,7 +243,7 @@ def select_organization_network():
             devices = get_devices(network_id)
 
     return render_template('columnpage.html', organizations = organizations, networks = networks, devices = devices, selected_organization = selected_organization,
-         selected_network = selected_network, configured_hostnames = configured_hostnames)
+         selected_network = selected_network, configured_hostnames = configured_hostnames, failed_hostnames = failed_hostnames)
 
 # User selects devices to configure in third rail
 @app.route('/select_device', methods=['POST', 'GET'])
@@ -214,6 +254,7 @@ def select_device():
     global networks
     global devices
     global configured_hostnames
+    global failed_hostnames
 
     if request.method == 'POST':
         form_data = request.form
@@ -224,15 +265,15 @@ def select_device():
             serial_numbers = form_dict['device']
 
             # Configure the hostnames
-            configured_hostnames = configure_device(serial_numbers)
+            configured_hostnames, failed_hostnames = configure_device(serial_numbers)
             
         if 'webex_summary' in form_data:
-            send_webex_notification(configured_hostnames)
+            send_webex_notification(configured_hostnames, failed_hostnames)
 
         devices = get_devices(selected_network['id'])
 
     return render_template('columnpage.html', organizations = organizations, networks = networks, devices = devices, selected_organization = selected_organization,
-         selected_network = selected_network, configured_hostnames = configured_hostnames)
+         selected_network = selected_network, configured_hostnames = configured_hostnames, failed_hostnames = failed_hostnames)
 
 
 if __name__ == "__main__":

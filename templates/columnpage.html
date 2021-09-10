@@ -111,7 +111,7 @@
             </div>
 
             <div class="panel panel--loose panel--raised base-margin-bottom" {% if configured_hostnames == [] %} hidden {% endif %}>
-                <h2 class="subtitle" {% if configured_hostnames == [] %} hidden {% endif %}>Summary of configurations</h2>
+                <h2 class="subtitle" {% if configured_hostnames == [] or failed_hostnames == [] %} hidden {% endif %}>Summary of configurations</h2>
                 <br>
                 {% for device in configured_hostnames %}
                 <div class="toast base-margin-bottom">
@@ -119,6 +119,15 @@
                     <div class="toast__body">
                         <div class="toast__title">Hostname Configuration</div>
                         <div class="toast__message">We have successfully configured the hostname of the device with serial number {{device['serial']}} from {{device['old_name']}} to {{device['updated_name']}} </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% for device in failed_hostnames %}
+                <div class="toast base-margin-bottom">
+                    <div class="toast__icon text-danger icon-error-outline"></div>
+                    <div class="toast__body">
+                        <div class="toast__title">Hostname Failed</div>
+                        <div class="toast__message">We failed to configure the hostname of the device with serial number {{device['serial']}} and hostname {{device['old_name']}}</div>
                     </div>
                 </div>
                 {% endfor %}
